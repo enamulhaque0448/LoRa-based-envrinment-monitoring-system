@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Byte Us | LoRa Environment Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg: #111827;
+            --card-base: #202c40;
+            --text: #e0e6f0;
+            --primary-accent: #3b82f6;
+            --radius: 16px;
+            --shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
+        }
+
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 25px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--primary-accent);
+        }
+
+        .cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            flex: 1 1 28%;
+            padding: 25px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            color: #fff;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .temp-card {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .hum-card {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .pres-card {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .card h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        .value {
+            font-size: 3.2rem;
+            font-weight: bold;
+            color: #fff;
+            margin: 10px 0;
+        }
+
+        .unit,
+        .icon {
+            color: #fff;
+            opacity: 0.9;
+        }
+
+        .icon {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 2.5rem;
+            opacity: 0.3;
+        }
+
+        .charts-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .chart-box {
+            background: var(--card-base);
+            flex: 1 1 45%;
+            min-width: 350px;
+            padding: 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            height: 380px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-box h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--text);
+            font-size: 1.2rem;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #3c4c5c;
+            font-size: 0.9rem;
+            opacity: 0.8;
+            line-height: 1.6;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <div class="header">
+            <h1><i class="fas fa-satellite-dish"></i> Byte Us LoRa Environment Monitor</h1>
+            <p>Real-time data using ESP32 and LoRa SX1278</p>
+        </div>
+
+        <div class="cards">
+            <div class="card temp-card">
+                <i class="fas fa-temperature-three-quarters icon"></i>
+                <h2>Temperature</h2>
+                <div class="value" id="tempVal">--</div>
+                <span class="unit">°C</span>
+            </div>
+
+            <div class="card hum-card">
+                <i class="fas fa-cloud-rain icon"></i>
+                <h2>Humidity</h2>
+                <div class="value" id="humVal">--</div>
+                <span class="unit">%</span>
+            </div>
+
+            <div class="card pres-card">
+                <i class="fas fa-tachometer-alt icon"></i>
+                <h2>Pressure</h2>
+                <div class="value" id="presVal">--</div>
+                <span class="unit">hPa</span>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-box">
+                <h3>Historical Readings (Last 50)</h3>
+                <canvas id="mainChart"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <h3>Latest Reading Comparison</h3>
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <div class="footer">
+            LoRa 433 MHz | XAMPP Backend | Last Update: <span id="lastUpdated">--</span>
+            <br><br>
+            Team Byte Us — Tahsid • Akib • Armaan • Aryan • Enamul
+        </div>
+    </div>
+
+    <script>
+        const tempEl = document.getElementById("tempVal");
+        const humEl = document.getElementById("humVal");
+        const presEl = document.getElementById("presVal");
+        const lastUpdatedEl = document.getElementById("lastUpdated");
+
+        const TEMP_COLOR = "#dc2626";
+        const HUM_COLOR = "#059669";
+        const PRES_COLOR = "#2563eb";
+        const NEUTRAL_COLOR = "#b0c2d7";
+
+        const mainChart = new Chart(document.getElementById("mainChart"), {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: "Temp (°C)",
+                        data: [],
+                        borderColor: TEMP_COLOR,
+                        backgroundColor: "rgba(220, 38, 38, 0.2)",
+                        tension: 0.4,
+                        pointRadius: 3
+                    },
+                    {
+                        label: "Humidity (%)",
+                        data: [],
+                        borderColor: HUM_COLOR,
+                        backgroundColor: "rgba(5, 150, 105, 0.2)",
+                        tension: 0.4,
+                        pointRadius: 3
+                    },
+                    {
+                        label: "Pressure (hPa)",
+                        data: [],
+                        borderColor: PRES_COLOR,
+                        backgroundColor: "rgba(37, 99, 235, 0.2)",
+                        hidden: true,
+                        tension: 0.4,
+                        pointRadius: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                scales: {
+                    x: {
+                        ticks: { color: NEUTRAL_COLOR },
+                        grid: { color: "rgba(176, 194, 215, 0.1)" }
+                    },
+                    y: {
+                        ticks: { color: NEUTRAL_COLOR },
+                        grid: { color: "rgba(176, 194, 215, 0.1)" }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: "#e0e6f0" }
+                    }
+                }
+            }
+        });
+
+        const barChart = new Chart(document.getElementById("barChart"), {
+            type: "bar",
+            data: {
+                labels: ["Temp", "Humidity", "Pressure"],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [TEMP_COLOR, HUM_COLOR, PRES_COLOR]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: NEUTRAL_COLOR },
+                        grid: { color: "rgba(176, 194, 215, 0.1)" }
+                    },
+                    x: {
+                        ticks: { color: NEUTRAL_COLOR },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        async function fetchData() {
+            try {
+                const res = await fetch("get_data.php");
+                const data = await res.json();
+                if (data.length === 0) return;
+
+                const last = data[data.length - 1];
+
+                tempEl.innerHTML = Number(last.temperature).toFixed(1);
+                humEl.innerHTML = Number(last.humidity).toFixed(1);
+                presEl.innerHTML = Number(last.pressure).toFixed(0);
+
+                lastUpdatedEl.innerHTML = new Date().toLocaleTimeString();
+
+                mainChart.data.labels = data.map(d => d.reg_date.slice(11, 19));
+                mainChart.data.datasets[0].data = data.map(d => d.temperature);
+                mainChart.data.datasets[1].data = data.map(d => d.humidity);
+                mainChart.data.datasets[2].data = data.map(d => d.pressure);
+
+                barChart.data.datasets[0].data = [
+                    last.temperature,
+                    last.humidity,
+                    last.pressure
+                ];
+
+                mainChart.update("none");
+                barChart.update("none");
+
+            } catch (err) {
+                console.log("ERROR:", err);
+            }
+        }
+
+        setInterval(fetchData, 2000);
+        fetchData();
+    </script>
+</body>
+
+</html>
