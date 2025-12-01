@@ -29,7 +29,7 @@
 This project implements a complete IoT-based environmental monitoring system that collects real-time temperature, humidity, and pressure data using ESP32 microcontrollers with LoRa communication. The system transmits sensor readings wirelessly over long distances, stores them in a MySQL database, and visualizes the data on a responsive web dashboard with interactive charts.
 
 **Project Type:** University Course Project  
-**Course:** IoT and Embedded Systems  
+**Course:** MP & I 
 **Duration:** 4 Weeks  
 **Team:** Byte Us
 
@@ -397,7 +397,7 @@ Serial.println("Debug mode enabled");
 
 ## 👥 Team Members
 
-**Byte Us Team** - IoT and Embedded Systems Course Project
+**Byte Us Team** - MP&I Course Project
 
 | Name | Role | Contribution |
 |------|------|--------------|
