@@ -452,7 +452,7 @@ copies or substantial portions of the Software.
 
 **⭐ If you find this project useful, please consider giving it a star on GitHub!**
 
-*Last Updated: December 2024*  
+*Last Updated: 1 December 2025*  
 *Project Status: Completed*  
 *Course: IoT and Embedded Systems*
 
